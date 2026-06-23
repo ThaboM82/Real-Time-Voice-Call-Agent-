@@ -1,212 +1,256 @@
-﻿import NavBar from "../../components/NavBar";
-import { useEffect, useState } from "react";
-import { Bar, Pie, Line } from "react-chartjs-2";
+"use client";
+
+import { Line, Pie, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
+  LineElement,
   CategoryScale,
   LinearScale,
-  BarElement,
-  ArcElement,
   PointElement,
-  LineElement,
   Title,
   Tooltip,
   Legend,
+  ArcElement,
+  BarElement,
 } from "chart.js";
+import { useEffect, useState } from "react";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 ChartJS.register(
+  LineElement,
   CategoryScale,
   LinearScale,
-  BarElement,
-  ArcElement,
   PointElement,
-  LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ArcElement,
+  BarElement
 );
 
 export default function AnalyticsPage() {
-  const [transcripts, setTranscripts] = useState([]);
-  const [viewMode, setViewMode] = useState("weekly"); // toggle: weekly/monthly for stacked bar
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [metrics, setMetrics] = useState([]);
+  const [calls, setCalls] = useState([]);
+  const [days, setDays] = useState(7);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
 
+  // SSE connection to backend
   useEffect(() => {
-    fetch("/api/transcripts")
-      .then((res) => res.json())
-      .then((data) => setTranscripts(data))
-      .catch((err) => console.error("❌ Error loading transcripts:", err));
-  }, []);
+    setLoading(true);
+    const source = new EventSource(`/api/calls/stream?days=${days}`);
 
-  // Word frequency across all transcripts
-  const getGlobalWordFrequency = () => {
-    const freq = {};
-    transcripts.forEach((t) => {
-      t.transcripts.forEach((line) => {
-        line.text.split(/\s+/).forEach((word) => {
-          const w = word.toLowerCase();
-          if (!w) return;
-          freq[w] = (freq[w] || 0) + 1;
-        });
-      });
-    });
-    return Object.entries(freq)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
-  };
+    source.onmessage = (event) => {
+      const callsData = JSON.parse(event.data);
+      setCalls(callsData);
 
-  // Tag distribution
-  const getTagDistribution = () => {
-    const tagCounts = {};
-    transcripts.forEach((t) => {
-      (t.tags || []).forEach((tag) => {
-        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-      });
-    });
-    return tagCounts;
-  };
+      const totalCalls = callsData.length;
+      const avgDuration =
+        callsData.reduce((sum, c) => sum + c.duration, 0) / (totalCalls || 1);
+      const successRate =
+        (callsData.filter((c) => c.status === "success").length / (totalCalls || 1)) * 100;
 
-  // Transcript volume grouped by week/month per tag
-  const getTranscriptVolumeByTag = (mode, tag) => {
-    const volume = {};
-    transcripts.forEach((t) => {
-      if (!t.metadata?.startTime) return;
-      if (tag && !(t.tags || []).includes(tag)) return;
+      setMetrics([
+        { label: "Total Calls", value: totalCalls },
+        {
+          label: "Average Duration",
+          value: `${Math.round(avgDuration / 60)}m ${Math.round(avgDuration % 60)}s`,
+        },
+        { label: "Success Rate", value: `${Math.round(successRate)}%` },
+      ]);
 
-      const date = new Date(t.metadata.startTime);
-
-      let key;
-      if (mode === "weekly") {
-        key = `${date.getFullYear()}-W${Math.ceil(
-          (date.getDate() - date.getDay() + 1) / 7
-        )}`;
-      } else if (mode === "monthly") {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}`;
-      }
-
-      volume[key] = (volume[key] || 0) + 1;
-    });
-    return volume;
-  };
-
-  const wordFreq = getGlobalWordFrequency();
-  const tagDist = getTagDistribution();
-
-  const colors = [
-    "rgba(255, 99, 132, 0.8)",
-    "rgba(54, 162, 235, 0.8)",
-    "rgba(255, 206, 86, 0.8)",
-    "rgba(75, 192, 192, 0.8)",
-    "rgba(153, 102, 255, 0.8)",
-    "rgba(255, 159, 64, 0.8)",
-  ];
-
-  // Build stacked bar datasets per tag
-  const stackedDatasets = Object.keys(tagDist).map((tag, idx) => {
-    const volume = getTranscriptVolumeByTag(viewMode, tag);
-    return {
-      label: tag,
-      data: Object.values(volume),
-      backgroundColor: colors[idx % colors.length],
+      setLastUpdated(new Date().toLocaleString());
+      setLoading(false);
     };
-  });
 
-  const stackedLabels = Object.keys(
-    getTranscriptVolumeByTag(viewMode, Object.keys(tagDist)[0])
-  );
+    source.onerror = (err) => {
+      console.error("SSE error:", err);
+      source.close();
+      setLoading(false);
+    };
 
-  const stackedBarData = {
-    labels: stackedLabels,
-    datasets: stackedDatasets,
-  };
+    return () => source.close();
+  }, [days]);
 
-  const stackedBarOptions = {
-    plugins: {
-      legend: {
-        display: true,
-        position: "top",
-      },
-    },
-    responsive: true,
-    scales: {
-      x: {
-        stacked: true,
-      },
-      y: {
-        stacked: true,
-      },
-    },
-  };
+  // Chart data definitions (example placeholders)
+  const lineData = { labels: calls.map(c => new Date(c.timestamp).toLocaleTimeString()), datasets: [{ label: "Duration", data: calls.map(c => c.duration), borderColor: "blue" }] };
+  const pieData = { labels: ["Success", "Failed"], datasets: [{ data: [calls.filter(c => c.status === "success").length, calls.filter(c => c.status !== "success").length], backgroundColor: ["green", "red"] }] };
+  const barData = { labels: calls.map(c => new Date(c.timestamp).getHours()), datasets: [{ label: "Calls per Hour", data: calls.map(c => new Date(c.timestamp).getHours()), backgroundColor: "orange" }] };
+  const trendData = lineData;
+  const stackedData = barData;
 
-  const barData = {
-    labels: wordFreq.map(([w]) => w),
-    datasets: [
-      {
-        label: "Top Words Across All Transcripts",
-        data: wordFreq.map(([, c]) => c),
-        backgroundColor: "rgba(54, 162, 235, 0.6)",
-      },
-    ],
-  };
+  // Helper: download all charts zipped
+  const downloadAllCharts = () => {
+    const zip = new JSZip();
+    const charts = [
+      { id: "lineChart", filename: "call-durations.png" },
+      { id: "pieChart", filename: "success-vs-failed.png" },
+      { id: "barChart", filename: "hourly-calls.png" },
+      { id: "trendChart", filename: "daily-trend.png" },
+      { id: "stackedChart", filename: "calls-per-caller.png" },
+    ];
 
-  const pieData = {
-    labels: Object.keys(tagDist),
-    datasets: [
-      {
-        label: "Tag Distribution",
-        data: Object.values(tagDist),
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
-      },
-    ],
+    charts.forEach(({ id, filename }) => {
+      const chartEl = document.getElementById(id);
+      if (chartEl && chartEl.toBase64Image) {
+        const imgData = chartEl.toBase64Image().split(",")[1];
+        zip.file(filename, imgData, { base64: true });
+      }
+    });
+
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      saveAs(content, "analytics-charts.zip");
+    });
   };
 
   return (
-    <main style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <NavBar />
-      <h1>📊 Analytics Dashboard</h1>
-      <p>Overview of transcript trends and tag usage.</p>
-
-      <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }}>
-        <div style={{ width: "50%" }}>
-          <Bar data={barData} />
+    <main className={`${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-800"} relative p-6 min-h-screen`}>
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50 z-50">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <div style={{ width: "50%" }}>
-          <Pie data={pieData} />
+      )}
+
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+        <div className="flex gap-2">
+          <button
+            className="bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+            onClick={() => setDarkMode(!darkMode)}
+          >
+            {darkMode ? "Light Mode" : "Dark Mode"}
+          </button>
+          <button
+            className="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
+            onClick={downloadAllCharts}
+          >
+            Download All Charts
+          </button>
         </div>
       </div>
 
-      <div style={{ marginTop: "3rem" }}>
-        <h2>Stacked Bar Chart ({viewMode})</h2>
-        <div
-          style={{
-            marginBottom: "1rem",
-            display: "flex",
-            gap: "1rem",
-          }}
-        >
-          {["weekly", "monthly"].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              style={{
-                padding: "0.5rem 1rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                backgroundColor: viewMode === mode ? "#1e1e1e" : "#f9f9f9",
-                color: viewMode === mode ? "#fff" : "#333",
-                cursor: "pointer",
-                fontWeight: viewMode === mode ? "bold" : "normal",
-                transition: "all 0.2s ease",
-              }}
-            >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </button>
-          ))}
+      {lastUpdated && (
+        <div className="flex items-center gap-4 mb-6">
+          <p className="text-sm text-gray-500">Last updated: {lastUpdated}</p>
+          <button
+            className="bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Now
+          </button>
         </div>
-        <Bar data={stackedBarData} options={stackedBarOptions} />
+      )}
+
+      {/* Metrics summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {metrics.map((m) => (
+          <div key={m.label} className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+            <h2 className="text-sm font-semibold">{m.label}</h2>
+            <p className="text-2xl font-bold">{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Call Durations */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Call Durations</h2>
+          <Line id="lineChart" data={lineData} />
+          <button className="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 text-xs"
+            onClick={() => {
+              const chart = document.getElementById("lineChart");
+              const url = chart.toBase64Image();
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = "call-durations.png";
+              link.click();
+            }}>
+            Download PNG
+          </button>
+        </div>
+
+        {/* Success vs Failed */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Success vs Failed</h2>
+          <Pie id="pieChart" data={pieData} />
+          <button className="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 text-xs"
+            onClick={() => {
+              const chart = document.getElementById("pieChart");
+              const url = chart.toBase64Image();
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = "success-vs-failed.png";
+              link.click();
+            }}>
+            Download PNG
+          </button>
+        </div>
+
+        {/* Hourly Calls */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Hourly Calls</h2>
+          <Bar id="barChart" data={barData} />
+          <button className="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 text-xs"
+            onClick={() => {
+              const chart = document.getElementById("barChart");
+              const url = chart.toBase64Image();
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = "hourly-calls.png";
+              link.click();
+            }}>
+            Download PNG
+          </button>
+        </div>
+
+               {/* Daily Trend */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Daily Trend</h2>
+          <Line id="trendChart" data={trendData} />
+          <button
+            className="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 text-xs"
+            onClick={() => {
+              const chart = document.getElementById("trendChart");
+              const url = chart.toBase64Image();
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = "daily-trend.png";
+              link.click();
+            }}
+          >
+            Download PNG
+          </button>
+        </div>
+
+        {/* Calls per Caller (stacked bar) */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4 col-span-2`}>
+          <h2 className="text-sm font-semibold mb-2">Calls per Caller</h2>
+          <Bar
+            id="stackedChart"
+            data={stackedData}
+            options={{
+              responsive: true,
+              plugins: { legend: { position: "top" } },
+              scales: { x: { stacked: true }, y: { stacked: true } },
+            }}
+          />
+          <button
+            className="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 text-xs"
+            onClick={() => {
+              const chart = document.getElementById("stackedChart");
+              const url = chart.toBase64Image();
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = "calls-per-caller.png";
+              link.click();
+            }}
+          >
+            Download PNG
+          </button>
+        </div>
       </div>
     </main>
   );
