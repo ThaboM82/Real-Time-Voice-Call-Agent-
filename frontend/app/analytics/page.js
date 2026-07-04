@@ -1,6 +1,8 @@
-﻿import NavBar from "../../components/NavBar";
-import { useEffect, useState } from "react";
-import { Bar, Pie, Line } from "react-chartjs-2";
+"use client";
+
+import React, { useEffect, useState, useRef } from "react";
+import NavBar from "../../components/NavBar";
+import { Line, Pie, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,7 +15,10 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
+// Register chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -27,10 +32,73 @@ ChartJS.register(
 );
 
 export default function AnalyticsPage() {
+  // State
+  const [metrics, setMetrics] = useState([]);
+  const [calls, setCalls] = useState([]);
+  const [days, setDays] = useState(7);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+
   const [transcripts, setTranscripts] = useState([]);
-  const [viewMode, setViewMode] = useState("weekly"); // toggle: weekly/monthly for stacked bar
+  const [viewMode, setViewMode] = useState("weekly"); // toggle weekly/monthly
   const [selectedTags, setSelectedTags] = useState([]);
 
+  // Chart refs
+  const lineChartRef = useRef(null);
+  const pieChartRef = useRef(null);
+  const barChartRef = useRef(null);
+  const trendChartRef = useRef(null);
+  const stackedChartRef = useRef(null);
+
+  // SSE connection to backend
+  useEffect(() => {
+    setLoading(true);
+    const source = new EventSource(`/api/calls/stream?days=${days}`);
+
+    source.onmessage = (event) => {
+      try {
+        const callsData = JSON.parse(event.data);
+        setCalls(callsData);
+
+        const totalCalls = callsData.length;
+        const avgDuration =
+          callsData.reduce((sum, c) => sum + c.duration, 0) / (totalCalls || 1);
+        const successRate =
+          (callsData.filter((c) => c.status === "success").length /
+            (totalCalls || 1)) *
+          100;
+
+        setMetrics([
+          { label: "Total Calls", value: totalCalls },
+          {
+            label: "Average Duration",
+            value: `${Math.round(avgDuration / 60)}m ${Math.round(
+              avgDuration % 60
+            )}s`,
+          },
+          { label: "Success Rate", value: `${Math.round(successRate)}%` },
+        ]);
+
+        setLastUpdated(new Date().toLocaleString());
+        setLoading(false);
+      } catch (err) {
+        console.error("❌ SSE parse error:", err);
+      }
+    };
+
+    source.onerror = (err) => {
+      console.error("❌ SSE connection error:", err);
+      source.close();
+      setLoading(false);
+    };
+
+    return () => {
+      source.close();
+    };
+  }, [days]);
+
+  // Fetch transcripts for tag/word analytics
   useEffect(() => {
     fetch("/api/transcripts")
       .then((res) => res.json())
@@ -96,12 +164,12 @@ export default function AnalyticsPage() {
   const tagDist = getTagDistribution();
 
   const colors = [
-    "rgba(255, 99, 132, 0.8)",
-    "rgba(54, 162, 235, 0.8)",
-    "rgba(255, 206, 86, 0.8)",
-    "rgba(75, 192, 192, 0.8)",
-    "rgba(153, 102, 255, 0.8)",
-    "rgba(255, 159, 64, 0.8)",
+    "#FF6384",
+    "#36A2EB",
+    "#FFCE56",
+    "#4BC0C0",
+    "#9966FF",
+    "#FF9F40",
   ];
 
   // Build stacked bar datasets per tag
@@ -115,7 +183,7 @@ export default function AnalyticsPage() {
   });
 
   const stackedLabels = Object.keys(
-    getTranscriptVolumeByTag(viewMode, Object.keys(tagDist)[0])
+    getTranscriptVolumeByTag(viewMode, Object.keys(tagDist)[0] || "")
   );
 
   const stackedBarData = {
@@ -132,12 +200,8 @@ export default function AnalyticsPage() {
     },
     responsive: true,
     scales: {
-      x: {
-        stacked: true,
-      },
-      y: {
-        stacked: true,
-      },
+      x: { stacked: true },
+      y: { stacked: true },
     },
   };
 
@@ -158,55 +222,143 @@ export default function AnalyticsPage() {
       {
         label: "Tag Distribution",
         data: Object.values(tagDist),
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
+        backgroundColor: colors,
       },
     ],
   };
 
-  return (
-    <main style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <NavBar />
-      <h1>📊 Analytics Dashboard</h1>
-      <p>Overview of transcript trends and tag usage.</p>
+  // Call charts
+  const lineData = {
+    labels: calls.map((c) =>
+      new Date(c.timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    ),
+    datasets: [
+      {
+        label: "Duration (s)",
+        data: calls.map((c) => c.duration),
+        borderColor: "blue",
+        backgroundColor: "rgba(54, 162, 235, 0.2)",
+      },
+    ],
+  };
 
-      <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }}>
-        <div style={{ width: "50%" }}>
-          <Bar data={barData} />
+  const successCount = calls.filter((c) => c.status === "success").length;
+  const failCount = calls.length - successCount;
+
+  const callPieData = {
+    labels: ["Success", "Failed"],
+    datasets: [
+      {
+        data: [successCount, failCount],
+        backgroundColor: ["green", "red"],
+      },
+    ],
+  };
+
+  const hourlyCounts = Array.from({ length: 24 }, (_, h) =>
+    calls.filter((c) => new Date(c.timestamp).getHours() === h).length
+  );
+
+  const hourlyBarData = {
+    labels: Array.from({ length: 24 }, (_, h) => `${h}:00`),
+    datasets: [
+      {
+        label: "Calls per Hour",
+        data: hourlyCounts,
+        backgroundColor: "orange",
+      },
+    ],
+  };
+
+  const trendData = lineData;
+
+  // Helper: download all charts zipped
+  const downloadAllCharts = () => {
+    const zip = new JSZip();
+    const charts = [
+      { ref: lineChartRef, filename: "call-durations.png" },
+      { ref: pieChartRef, filename: "success-vs-failed.png" },
+      { ref: barChartRef, filename: "hourly-calls.png" },
+      { ref: trendChartRef, filename: "daily-trend.png" },
+      { ref: stackedChartRef, filename: "calls-per-caller.png" },
+    ];
+
+    charts.forEach(({ ref, filename }) => {
+      if (ref.current) {
+        const imgData = ref.current.toBase64Image().split(",")[1];
+        zip.file(filename, imgData, { base64: true });
+      }
+    });
+
+        zip.generateAsync({ type: "blob" }).then((content) => {
+      saveAs(content, "analytics-charts.zip");
+    });
+  };
+
+  return (
+    <main className={`${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-800"} relative p-6 min-h-screen`}>
+      <NavBar />
+      <h1 className="text-2xl font-bold mb-4">📊 Analytics Dashboard</h1>
+
+      {/* Metrics summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {metrics.map((m) => (
+          <div key={m.label} className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+            <h2 className="text-sm font-semibold">{m.label}</h2>
+            <p className="text-2xl font-bold">{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Call Durations */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Call Durations</h2>
+          <Line ref={lineChartRef} data={lineData} />
         </div>
-        <div style={{ width: "50%" }}>
-          <Pie data={pieData} />
+
+        {/* Success vs Failed */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Success vs Failed</h2>
+          <Pie ref={pieChartRef} data={callPieData} />
+        </div>
+
+        {/* Hourly Calls */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Hourly Calls</h2>
+          <Bar ref={barChartRef} data={hourlyBarData} />
+        </div>
+
+        {/* Daily Trend */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4`}>
+          <h2 className="text-sm font-semibold mb-2">Daily Trend</h2>
+          <Line ref={trendChartRef} data={trendData} />
+        </div>
+
+        {/* Calls per Caller (stacked bar) */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow rounded-lg p-4 col-span-2`}>
+          <h2 className="text-sm font-semibold mb-2">Calls per Caller</h2>
+          <Bar ref={stackedChartRef} data={stackedBarData} options={stackedBarOptions} />
         </div>
       </div>
 
-      <div style={{ marginTop: "3rem" }}>
-        <h2>Stacked Bar Chart ({viewMode})</h2>
-        <div
-          style={{
-            marginBottom: "1rem",
-            display: "flex",
-            gap: "1rem",
-          }}
+      <div className="mt-6 flex gap-2">
+        <button
+          className="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
+          onClick={downloadAllCharts}
         >
-          {["weekly", "monthly"].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              style={{
-                padding: "0.5rem 1rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                backgroundColor: viewMode === mode ? "#1e1e1e" : "#f9f9f9",
-                color: viewMode === mode ? "#fff" : "#333",
-                cursor: "pointer",
-                fontWeight: viewMode === mode ? "bold" : "normal",
-                transition: "all 0.2s ease",
-              }}
-            >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </button>
-          ))}
-        </div>
-        <Bar data={stackedBarData} options={stackedBarOptions} />
+          Download All Charts
+        </button>
+        <button
+          className="bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+          onClick={() => setDarkMode(!darkMode)}
+        >
+          {darkMode ? "Light Mode" : "Dark Mode"}
+        </button>
       </div>
     </main>
   );

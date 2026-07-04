@@ -1,12 +1,11 @@
-﻿import NavBar from "../../components/NavBar";
-import TranscriptViewer from "../../components/TranscriptViewer";
+﻿import AppointmentsTable from "../../components/AppointmentsTable";
 
-export default function TranscriptsPage() {
+export default function AppointmentsPage() {
   return (
-    <main style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <NavBar />
-      <h1>Transcript Dashboard</h1>
-      <TranscriptViewer />
+    <main>
+      <h1>Appointments</h1>
+      <AppointmentsTable />
     </main>
   );
 }
+
