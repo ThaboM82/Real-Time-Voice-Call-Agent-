@@ -1,0 +1,56 @@
+﻿{
+  "info": {
+    "name": "Real-Time Voice Agent Backend",
+    "_postman_id": "voice-agent-collection",
+    "description": "Collection to test backend endpoints with environment variables",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/health" } }
+    },
+    {
+      "name": "Appointments - List",
+      "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/appointments" } }
+    },
+    {
+      "name": "Appointments - Book",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"title\": \"Dentist\", \"time\": \"2026-06-25T15:00:00Z\", \"status\": \"booked\", \"phone\": \"+1234567890\" }" },
+        "url": { "raw": "{{BASE_URL}}/appointments" }
+      }
+    },
+    {
+      "name": "Transcripts - Fetch",
+      "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/transcripts?limit=10" } }
+    },
+    {
+      "name": "Transcripts - Export TXT",
+      "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/transcripts/123/export?format=txt" } }
+    },
+    {
+      "name": "Settings - Save",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{ \"voiceKey\": \"roger\" }" },
+        "url": { "raw": "{{BASE_URL}}/api/settings" }
+      }
+    },
+    {
+      "name": "Settings - Load",
+      "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/settings" } }
+    },
+    {
+      "name": "SSE Stream - Calls",
+      "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/calls/stream" } }
+    },
+    {
+      "name": "Twilio Call Webhook",
+      "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/twilio-call" } }
+    }
+  ]
+}
