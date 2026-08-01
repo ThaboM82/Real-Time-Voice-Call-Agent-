@@ -34,7 +34,7 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     needs: build-and-test
-    if: github.ref == 'refs/heads/main'
+    # Removed the "if:" condition so this always runs on pushes to main
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
