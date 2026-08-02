@@ -1,3 +1,4 @@
+# Updated CI pipeline config
 name: CI Pipeline
 
 on:
