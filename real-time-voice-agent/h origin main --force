@@ -1,0 +1,52 @@
+* [33md75bd646[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m WIP: backend fixes before merge
+* [33m1fb41a9d[m Fix duplicate db initialization and unify SQLite filename
+* [33md5270c7d[m Add backend & frontend code, workflows, and configs
+* [33m2433e09f[m Add backend configs, middleware, and Docker setup
+* [33mb36fb889[m Add backend source and update frontend .gitignore
+* [33mcbbfb6ac[m Ignore all node_modules directories
+* [33m08e538b6[m Ignore node_modules directories
+* [33m188fd892[m Update server.js
+* [33m3ff2f376[m Ignore backend/.env
+* [33mec5253ca[m Ignore node_modules directories
+* [33m00e54b5f[m Refresh branch for secret scan
+* [33m49414f31[m Trigger secret scan again
+* [33mbe489022[m Refresh cleanup-branch for merge
+* [33mec8bf55c[m Clean repo: remove tracked junk and add .gitignore
+* [33m05c19a1b[m Update SSE stream and analytics dashboard
+[31m|[m * [33m248e6004[m[33m ([m[1;32mbackend-fix-db[m[33m)[m WIP: backend fixes before merge
+[31m|[m [32m|[m * [33m9728fab4[m[33m ([m[1;31morigin/backend-fix-db[m[33m)[m Merge branch 'main' into backend-fix-db
+[31m|[m [32m|[m[32m/[m[31m|[m 
+[31m|[m [32m|[m[31m/[m  
+[31m|[m[31m/[m[32m|[m   
+* [32m|[m   [33m79a4d125[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #1 from ThaboM82/test-secret-scan
+[35m|[m[36m\[m [32m\[m  
+[35m|[m [36m|[m * [33ma03ac399[m Fix duplicate db initialization and unify SQLite filename
+[35m|[m [36m|[m * [33m7b4e7c6a[m[33m ([m[1;31morigin/cleanup-branch[m[33m, [m[1;32mcleanup-branch[m[33m)[m Add backend & frontend code, workflows, and configs
+[35m|[m [36m|[m * [33m2bf8620d[m Add backend configs, middleware, and Docker setup
+[35m|[m [36m|[m * [33m792d0432[m Add backend source and update frontend .gitignore
+[35m|[m [36m|[m * [33m2b6f71d4[m Ignore all node_modules directories
+[35m|[m [36m|[m * [33md4b14097[m Ignore node_modules directories
+[35m|[m [36m|[m * [33m1f02d495[m Update server.js
+[35m|[m [36m|[m * [33m6896bd51[m Ignore backend/.env
+[35m|[m [36m|[m *   [33mf5b96bd0[m Merge branch 'main' of github.com:ThaboM82/Real-Time-Voice-Call-Agent- into cleanup-branch
+[35m|[m [36m|[m [1;31m|[m[1;32m\[m  
+[35m|[m [36m|[m * [1;32m|[m [33m1e3b4c9d[m Ignore node_modules directories
+[35m|[m [36m|[m * [1;32m|[m [33m35cb1e8d[m Refresh branch for secret scan
+[35m|[m [36m|[m * [1;32m|[m [33mb351cec7[m Trigger secret scan again
+[35m|[m [36m|[m * [1;32m|[m [33ma21fb882[m Refresh cleanup-branch for merge
+[35m|[m [36m|[m * [1;32m|[m [33m62c6c34a[m Clean repo: remove tracked junk and add .gitignore
+[35m|[m [36m|[m * [1;32m|[m [33m51696c89[m Merge branch 'main' and resolve conflicts in README.md and backend/server.js
+[35m|[m [36m|[m [1;33m|[m[1;32m\[m[1;32m|[m 
+[35m|[m [36m|[m [1;33m|[m * [33m2d3ae8a8[m Merge pull request #1 from ThaboM82/test-secret-scan
+[35m|[m [36m|[m[35m_[m[1;33m|[m[35m/[m[36m|[m 
+[35m|[m[35m/[m[36m|[m [1;33m|[m[36m/[m  
+[35m|[m [36m|[m[36m/[m[1;33m|[m   
+[35m|[m * [1;33m|[m [33m581b68a1[m[33m ([m[1;31morigin/test-secret-scan[m[33m, [m[1;32mtest-secret-scan[m[33m)[m Trigger Secret Scan workflow
+[35m|[m[35m/[m [1;33m/[m  
+* [1;33m|[m [33m11a6744a[m Add secret scan workflow
+* [1;33m|[m [33ma68a321b[m Initial clean commit without secrets
+* [1;33m|[m [33mf210f506[m Initial clean commit without secrets
+ [1;33m/[m  
+* [33ma9125938[m Update SSE stream and analytics dashboard
+* [33m83a40e2a[m Convert frontend from submodule to tracked project files
+* [33m969a355f[m Backend server with hot-reload caches, Twilio streaming, and ElevenLabs integration
