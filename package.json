@@ -1,37 +1,17 @@
 {
   "name": "real-time-voice-call-agent",
   "version": "1.0.0",
-  "description": "Full-stack real-time voice call agent with backend and frontend services",
-  "type": "module",
-  "main": "server.js",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "start": "node backend/server.js",
-    "dev": "nodemon backend/server.js",
     "lint": "eslint .",
-    "test": "jest",
-    "build": "next build"
-  },
-  "dependencies": {
-    "@deepgram/sdk": "^5.4.0",
-    "audio-decode": "^3.10.2",
-    "better-sqlite3": "^9.0.0",
-    "body-parser": "^2.3.0",
-    "chrono-node": "^2.9.1",
-    "dotenv": "^17.4.2",
-    "elevenlabs": "^1.59.0",
-    "express": "^4.19.2",
-    "http": "^0.0.1-security",
-    "morgan": "^1.11.0",
-    "next": "^14.0.0",
-    "node-cron": "^4.2.1",
-    "node-fetch": "^3.3.2",
-    "prism-media": "^1.3.5",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^6.0.1",
-    "twilio": "^6.0.2",
-    "ws": "^8.21.0"
+    "test": "npm run test --workspaces",
+    "build": "npm run build --workspace frontend",
+    "start": "npm run start --workspace backend",
+    "dev": "npm run dev --workspace backend"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -40,16 +20,5 @@
     "globals": "^17.8.0",
     "jest": "^29.0.0",
     "nodemon": "^3.1.14"
-  },
-  "directories": {
-    "doc": "docs"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ThaboM82/Real-Time-Voice-Call-Agent-.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ThaboM82/Real-Time-Voice-Call-Agent-/issues"
-  },
-  "homepage": "https://github.com/ThaboM82/Real-Time-Voice-Call-Agent-#readme"
+  }
 }
