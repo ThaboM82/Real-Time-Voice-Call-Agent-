@@ -8,7 +8,17 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18, 20]
+      exclude:
+        - os: macos-latest
+          node-version: 18
+      include:
+        - os: ubuntu-latest
+          node-version: 22   # special experimental lint job
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -16,19 +26,35 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
       - name: Install dependencies (root)
-        run: npm install
+        run: npm ci
         working-directory: ./real-time-voice-agent
 
       - name: Run lint (root)
         run: npm run lint
         working-directory: ./real-time-voice-agent
 
-  backend:
-    runs-on: ubuntu-latest
+  build-test:
+    runs-on: ${{ matrix.os }}
     needs: lint
+    strategy:
+      matrix:
+        project: [backend, frontend]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18, 20]
+      exclude:
+        - os: macos-latest
+          node-version: 18
+      include:
+        - project: backend
+          os: ubuntu-latest
+          node-version: 22   # special experimental backend job
+        - project: frontend
+          os: ubuntu-latest
+          node-version: 22   # special experimental frontend job
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,26 +62,34 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-      - name: Install backend dependencies
-        run: npm install
-        working-directory: ./real-time-voice-agent/backend
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./real-time-voice-agent/${{ matrix.project }}
 
-      - name: Run backend tests
+      - name: Run tests
         run: npm test
-        working-directory: ./real-time-voice-agent/backend
+        working-directory: ./real-time-voice-agent/${{ matrix.project }}
+
+      - name: Build (frontend only)
+        if: matrix.project == 'frontend'
+        run: npm run build
+        working-directory: ./real-time-voice-agent/frontend
 
       - name: Start backend (smoke test)
+        if: matrix.project == 'backend'
         run: npm start &
         working-directory: ./real-time-voice-agent/backend
 
       - name: Health check
+        if: matrix.project == 'backend'
         run: curl --fail http://localhost:3001/api/health
 
-  frontend:
+  security:
     runs-on: ubuntu-latest
-    needs: lint
+    needs: build-test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,23 +97,24 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      - name: Install frontend dependencies
-        run: npm install
-        working-directory: ./real-time-voice-agent/frontend
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./real-time-voice-agent
 
-      - name: Build frontend
-        run: npm run build
-        working-directory: ./real-time-voice-agent/frontend
+      - name: Run npm audit (warn only)
+        run: |
+          npm audit --audit-level=high || echo "⚠️ High severity vulnerabilities found, review required"
+        working-directory: ./real-time-voice-agent
 
-      - name: Run frontend tests
-        run: npm test
-        working-directory: ./real-time-voice-agent/frontend
+      - name: Secret scan
+        uses: github/secret-scanning@v1
+        continue-on-error: true
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [build-test, security]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout repository
@@ -94,4 +129,3 @@ jobs:
         with:
           serviceId: ${{ secrets.RENDER_SERVICE_ID }}
           apiKey: ${{ secrets.RENDER_API_KEY }}
-
