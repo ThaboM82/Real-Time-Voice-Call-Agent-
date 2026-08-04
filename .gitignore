@@ -1,35 +1,39 @@
-# Node.js
+# Node.js dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build output
+# Build outputs
 dist/
+build/
 .next/
 out/
 
+# Testing
+coverage/
+.jest/
+
 # Logs
-logs
 *.log
+logs/
 *.pid
 *.seed
 *.pid.lock
 
-# Environment files
-.env
-.env.local
-.env.*.local
-backend/.env
-
-# Docker
-docker-compose.override.yml
-
-# Database
-*.sqlite
-*.db
-
-# Misc
+# OS files
 .DS_Store
 Thumbs.db
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+
+# Misc
+*.tgz
